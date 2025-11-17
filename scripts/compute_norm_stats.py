@@ -21,6 +21,7 @@ class RemoveStrings(transforms.DataTransformFn):
         def is_str_like(v):
             a = np.asarray(v)
             return np.issubdtype(a.dtype, np.str_) or np.issubdtype(a.dtype, np.bytes_)
+
         def strip(tree):
             if isinstance(tree, dict):
                 out = {}
@@ -29,14 +30,13 @@ class RemoveStrings(transforms.DataTransformFn):
                         sv = strip(v)
                         # keep containers even if empty; dataloader can handle it
                         out[k] = sv
-                    else:
-                        if not is_str_like(v):
-                            out[k] = v
+                    elif not is_str_like(v):
+                        out[k] = v
                 return out
-            elif isinstance(tree, (list, tuple)):
+            if isinstance(tree, (list, tuple)):
                 return type(tree)(strip(v) for v in tree)
-            else:
-                return tree if not is_str_like(tree) else None  # will get dropped by parent
+            return tree if not is_str_like(tree) else None  # will get dropped by parent
+
         # Drop any None values that may appear from lists/tuples
         cleaned = strip(x)
         if isinstance(cleaned, dict):
@@ -70,7 +70,7 @@ def create_torch_dataloader(
     else:
         num_batches = len(dataset) // batch_size
         shuffle = False
-    print('no bug before creating dataloader')
+    print("no bug before creating dataloader")
     data_loader = _data_loader.TorchDataLoader(
         dataset,
         local_batch_size=batch_size,
@@ -81,7 +81,7 @@ def create_torch_dataloader(
     print("[DEBUG] built data_loader; num_batches =", num_batches, flush=True)
     it = iter(data_loader)
     print("[DEBUG] pulling first batch...", flush=True)
-    first = next(it)   # <- if it hangs here, it’s the dataset/transform/IO
+    first = next(it)  # <- if it hangs here, it’s the dataset/transform/IO
     print("[DEBUG] got first batch keys:", list(first.keys()), flush=True)
 
     return data_loader, num_batches
@@ -118,20 +118,20 @@ def create_rlds_dataloader(
 
 def main(config_name: str, max_frames: int | None = None):
     config = _config.get_config(config_name)
-    print('finded the config')
+    print("finded the config")
     data_config = config.data.create(config.assets_dirs, config.model)
-    print('data_config loading successfully')
+    print("data_config loading successfully")
     if data_config.rlds_data_dir is not None:
-        print('creat rlds data loaders')
+        print("creat rlds data loaders")
         data_loader, num_batches = create_rlds_dataloader(
             data_config, config.model.action_horizon, config.batch_size, max_frames
         )
     else:
-        print('create torch data loader')
+        print("create torch data loader")
         data_loader, num_batches = create_torch_dataloader(
             data_config, config.model.action_horizon, config.batch_size, config.model, config.num_workers, max_frames
         )
-    print('nothing wrong in creating dataloader')
+    print("nothing wrong in creating dataloader")
     keys = ["state", "actions"]
     stats = {key: normalize.RunningStats() for key in keys}
 
@@ -147,5 +147,5 @@ def main(config_name: str, max_frames: int | None = None):
 
 
 if __name__ == "__main__":
-    print('no error with main')
+    print("no error with main")
     tyro.cli(main)

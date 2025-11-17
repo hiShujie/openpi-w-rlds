@@ -1,6 +1,7 @@
 import dataclasses
 import functools
 import logging
+import os
 import platform
 from typing import Any
 
@@ -26,9 +27,9 @@ import openpi.training.optimizer as _optimizer
 import openpi.training.sharding as sharding
 import openpi.training.utils as training_utils
 import openpi.training.weight_loaders as _weight_loaders
-import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3, 4, 5,6,7"  
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3, 4, 5,6,7"
+
 
 def init_logging():
     """Custom logging format for better readability."""

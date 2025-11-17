@@ -45,19 +45,19 @@ class BridgePadInputs(transforms.DataTransformFn):
         # Get the state. We are padding from 8 to the model action dim.
         state = data["observation/state"][:8]
         # state = torch.zeros(data["observation/state"].shape)
-        
+
         state = transforms.pad_to_dim(data["observation/state"], self.action_dim)
 
         # Possibly need to parse images to uint8 (H,W,C) since LeRobot automatically
         # stores as float32 (C,H,W), gets skipped for policy inference
         # breakpoint()
         # breakpoint()
-        
+
         if "observation/image" in data:
             primary_image = _parse_image(data["observation/image"])
         elif "observation/primary_image" in data:
             primary_image = _parse_image(data["observation/primary_image"])
-        elif "observation/image_0" in data: 
+        elif "observation/image_0" in data:
             primary_image = _parse_image(data["observation/image_0"])
         else:
             raise KeyError(

@@ -18,13 +18,13 @@ import openpi.models.pi0_config as pi0_config
 import openpi.models.pi0_fast as pi0_fast
 import openpi.models.tokenizer as _tokenizer
 import openpi.policies.aloha_policy as aloha_policy
+import openpi.policies.bridge_policy as bridge_pad_policy
 import openpi.policies.droid_policy as droid_policy
 import openpi.policies.libero_policy as libero_policy
-import openpi.policies.bridge_policy as bridge_pad_policy
 import openpi.shared.download as _download
 import openpi.shared.normalize as _normalize
-import openpi.training.droid_rlds_dataset as droid_rlds_dataset
 import openpi.training.bridge_rlds_dataset as bridge_rlds_dataset
+import openpi.training.droid_rlds_dataset as droid_rlds_dataset
 import openpi.training.misc.roboarena_config as roboarena_config
 import openpi.training.optimizer as _optimizer
 import openpi.training.weight_loaders as weight_loaders
@@ -417,6 +417,7 @@ class RLDSDroidDataConfig(DataConfigFactory):
             filter_dict_path=self.filter_dict_path,
         )
 
+
 @dataclasses.dataclass(frozen=True)
 class RLDSBridgeDataConfig(DataConfigFactory):
     """
@@ -436,6 +437,7 @@ class RLDSBridgeDataConfig(DataConfigFactory):
     prompt_from_task: bool = True
     local_files_only: bool = True
     aug_data_paths: list[str] | None = None
+
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
         # Repack from your BridgeRldsDataset.restructure() output -> OpenPI standard keys.
@@ -445,7 +447,7 @@ class RLDSBridgeDataConfig(DataConfigFactory):
         #   observation/state   (7-D 'state')
         #   actions                      (T, 7)
         #   prompt
-        print('create override')
+        print("create override")
         repack_transform = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(
@@ -459,7 +461,7 @@ class RLDSBridgeDataConfig(DataConfigFactory):
                 )
             ]
         )
-        print('before data_transform')
+        print("before data_transform")
         # We can reuse the DROID input/output transform contracts; they just expect
         # the standardized keys above.
         data_transforms = _transforms.Group(
@@ -471,21 +473,23 @@ class RLDSBridgeDataConfig(DataConfigFactory):
             ],
             outputs=[bridge_pad_policy.BridgePadOutputs()],
         )
-        print('data_transform')
+        print("data_transform")
         # Model transforms include things like tokenizing the prompt and action targets
         model_transforms = ModelTransformFactory()(model_config)
-        print('no error after model transform')
+        print("no error after model transform")
         return dataclasses.replace(
-            self.create_base_config(assets_dirs,model_config),
+            self.create_base_config(assets_dirs, model_config),
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
             use_quantile_norm=self.use_quantile_norm,
             action_sequence_keys=self.action_sequence_keys,
             prompt_from_task=self.prompt_from_task,
-            rlds_data_dir=self.rlds_data_dir, 
+            rlds_data_dir=self.rlds_data_dir,
             aug_data_paths=self.aug_data_paths,
         )
+
+
 @dataclasses.dataclass(frozen=True)
 class LeRobotDROIDDataConfig(DataConfigFactory):
     """
@@ -1024,7 +1028,6 @@ _CONFIGS = [
         exp_name="debug_pi05",
         wandb_enabled=False,
     ),
-    
     #
     # RoboArena configs.
     #
@@ -1044,16 +1047,16 @@ _CONFIGS = [
             rlds_data_dir="/cpfs/shared/aigc/zhangshujie/",
             action_space=bridge_rlds_dataset.BridgeActionSpace,
             # multi support, aug_data_paths = ["/path/to/aug1", "/path/to/aug2"],
-            aug_data_paths = ["/cpfs/shared/aigc/wangboyang/dataset/"],
+            aug_data_paths=["/cpfs/shared/aigc/wangboyang/dataset/"],
         ),
         # Here you define which pre-trained checkpoint you want to load to initialize the model.
         # This should match the model config you chose above -- i.e. in this case we use the pi0 base model.
-        weight_loader=weight_loaders.CheckpointWeightLoader("/cpfs/shared/aigc/xudong_group/pretrained/models--oldTOM--pi0_base/snapshots/88e794fb312e073e9f09d2d7e10737a92c4aadcb/pi0_base/params"),
-        
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/cpfs/shared/aigc/xudong_group/pretrained/models--oldTOM--pi0_base/snapshots/88e794fb312e073e9f09d2d7e10737a92c4aadcb/pi0_base/params"
+        ),
         # Below you can define other hyperparameters like the learning rate, number of training steps, etc.
         # Check the base TrainConfig class for a full list of available hyperparameters.
         num_train_steps=40_000,
-        
     ),
     *roboarena_config.get_roboarena_configs(),
 ]

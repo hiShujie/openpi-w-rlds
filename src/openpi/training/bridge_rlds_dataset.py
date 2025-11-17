@@ -11,18 +11,22 @@ Key differences vs the original snippet:
 - Robust TFDS builder name: tries "bridge" first, then "bridge_orig".
 """
 
-from enum import Enum, auto
+from enum import Enum
+from enum import auto
 import json
 import logging
 from pathlib import Path
+
 import tqdm
 
 import openpi.shared.download as download
 
 DATASET_SAMPLE_WEIGHTS = [0.83, 0.17]
 
+
 class BridgeActionSpace(Enum):
     DEFAULT = auto()  # Bridge exposes a single 7-D action
+
 
 ## truly process low-level data and confirm as a whole
 
@@ -39,10 +43,10 @@ class BridgeRldsDataset:
         action_space: BridgeActionSpace = BridgeActionSpace.DEFAULT,
         max_loaded_steps_per_episode: int = 100,  # kept for API parity
         shuffle_buffer_size: int = 250_000,
-        num_parallel_reads: int = -1,   # -1 -> AUTOTUNE
-        num_parallel_calls: int = -1,   # -1 -> AUTOTUNE
-        filter_dict_path=None,          # JSON: episode_key -> [[start,end), ...]
-        include_metadata: bool = False, # if True, return prompt/step_id in a "metadata" key; still kept off device
+        num_parallel_reads: int = -1,  # -1 -> AUTOTUNE
+        num_parallel_calls: int = -1,  # -1 -> AUTOTUNE
+        filter_dict_path=None,  # JSON: episode_key -> [[start,end), ...]
+        include_metadata: bool = False,  # if True, return prompt/step_id in a "metadata" key; still kept off device
     ):
         # Import lazily so TF isn’t a hard dep unless RLDS is used
         import dlimp as dl
@@ -51,17 +55,16 @@ class BridgeRldsDataset:
 
         # Ensure TF doesn’t grab GPUs that JAX/PyTorch want
         tf.config.set_visible_devices([], "GPU")
-        
-        
+
         dataset_paths = []
         if data_dir:
             dataset_paths.append(data_dir)
         if aug_data_paths:
             dataset_paths.extend(aug_data_paths)
-            
+
         if not dataset_paths:
             raise ValueError("No data_dir or aug_data_paths provided to BridgeRldsDataset.")
-        weights = DATASET_SAMPLE_WEIGHTS[:len(dataset_paths)]
+        weights = DATASET_SAMPLE_WEIGHTS[: len(dataset_paths)]
         if len(weights) != len(dataset_paths):
             raise ValueError(
                 f"BridgeRldsDataset: number of weights ({len(weights)}) does not match "
@@ -72,15 +75,14 @@ class BridgeRldsDataset:
         for i, p in enumerate(dataset_paths):
             role = "main" if i == 0 else "aug"
             logging.info(f"  [{i}] ({role}) path={p}, weight={weights[i]:.3f}")
-            
-            
+
         datasets = []
         for path in dataset_paths:
             try:
                 builder = tfds.builder("bridge_orig", data_dir=path, version="0.1.0")
             except Exception as e:
                 logging.warning(f"Falling back to builder('custom name') for {path} due to: {e}")
-                #builder = tfds.builder("bridgeidaugmented", data_dir=path, version="0.1.0")
+                # builder = tfds.builder("bridgeidaugmented", data_dir=path, version="0.1.0")
                 builder = tfds.builder("bridge_pickle_tfds", data_dir=path, version="0.1.0")
 
             ds = dl.DLataset.from_rlds(
@@ -90,19 +92,18 @@ class BridgeRldsDataset:
                 num_parallel_reads=num_parallel_reads,
             )
             datasets.append(ds)
-        
+
         if len(datasets) == 1:
             dataset = datasets[0]
         else:
             logging.info(f"Sampling from {len(datasets)} datasets with weight of {DATASET_SAMPLE_WEIGHTS}")
             dataset = dl.DLataset.sample_from_datasets(
                 datasets,
-                weights=DATASET_SAMPLE_WEIGHTS, 
+                weights=DATASET_SAMPLE_WEIGHTS,
                 stop_on_empty_dataset=False,
                 rerandomize_each_iteration=True,
             )
-        
-        
+
         # # Build TFDS (BridgeData V2). Try "bridge" first, then fall back to "bridge_orig".
         # builder = tfds.builder("bridge_orig", data_dir=data_dir, version="0.1.0")
 
@@ -112,7 +113,6 @@ class BridgeRldsDataset:
         #     shuffle=shuffle,
         #     num_parallel_reads=num_parallel_reads,
         # )
-        
 
         # Repeat so we never run out of data
         dataset = dataset.repeat()
@@ -174,7 +174,6 @@ class BridgeRldsDataset:
             step_id = traj["traj_metadata"]["episode_metadata"]["file_path"] + "--" + indices
             passes_filter = self.filter_table.lookup(step_id)
 
-
             return {
                 "actions": actions,
                 "observation": {
@@ -187,15 +186,15 @@ class BridgeRldsDataset:
                 "passes_filter": passes_filter,
             }
 
-            
         dataset = dataset.traj_map(restructure, num_parallel_calls)
 
         def chunk_actions(traj):
             """Splits episode into action chunks (same as DROID)."""
             tf = __import__("tensorflow")
             traj_len = tf.shape(traj["actions"])[0]
-            idx = tf.broadcast_to(tf.range(action_chunk_size)[None], [traj_len, action_chunk_size]) + \
-                  tf.broadcast_to(tf.range(traj_len)[:, None], [traj_len, action_chunk_size])
+            idx = tf.broadcast_to(tf.range(action_chunk_size)[None], [traj_len, action_chunk_size]) + tf.broadcast_to(
+                tf.range(traj_len)[:, None], [traj_len, action_chunk_size]
+            )
             idx = tf.minimum(idx, traj_len - 1)  # repeat last action at end
             traj["actions"] = tf.gather(traj["actions"], idx)
             return traj
@@ -231,14 +230,14 @@ class BridgeRldsDataset:
         # *** CRITICAL: ensure only numeric leaves are sent to JAX ***
         # If include_metadata=True, strip it out before batching so the batch tree is numeric-only.
         if include_metadata:
+
             def strip_metadata(frame):
                 # Return metadata as a side-channel if you consume the iterator yourself.
                 # For standard training loops that move batches to devices, drop it here.
                 frame.pop("metadata", None)
                 return frame
+
             dataset = dataset.map(strip_metadata)
-
-
 
         # Shuffle & batch
         dataset = dataset.shuffle(shuffle_buffer_size)
