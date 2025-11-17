@@ -187,8 +187,7 @@ class BridgeRldsDataset:
                 "passes_filter": passes_filter,
             }
 
-            return frame
-
+            
         dataset = dataset.traj_map(restructure, num_parallel_calls)
 
         def chunk_actions(traj):
